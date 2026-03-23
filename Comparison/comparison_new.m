@@ -50,25 +50,49 @@ results(1,:) = {"CBF-QP", cbf_total, (cbf_total/step_count)*1000};
 
 %% --------------------- CASE 2: STT (Differential Drive) ------------------
 fprintf('Running STT Simulation...\n');
-% Note: STT requires a reference trajectory. Using a simple linear interpolation for comparison.
-x = x0; t_arr = 0:dt_sim:Tmax; step_count = 0;
-xd = linspace(x0(1), goal(1), length(t_arr));
-yd = linspace(x0(2), goal(2), length(t_arr));
+format long
+q = readmatrix("comparison.xlsx");
+start = [0.35 0.35 0.2];
+target = [2.65 2.65 0.2];
+obs = [0.75 0.75 0.25;
+       1.75 1.75 0.25;
+       0.25 1.75 0.25;
+       2.25 0.75 0.25];
 
-tic;
-for i=2:length(t_arr)
-    if norm(goal - x(1:2)) < goal_pos_tol, break; end
+dt = 1e-4;
+t = (0:dt:90)';
+% Initialization
+N = length(t);
+ux = zeros(1,N);
+uy = zeros(1,N);
+xd = zeros(1,N);
+yd = zeros(1,N);
+thetad = zeros(1,N);
+vd = zeros(1,N);
+wd = zeros(1,N);
+cenx = [ones(length(t),1), t, t.^2, t.^3]*q(2:5);
+ceny = [ones(length(t),1), t, t.^2, t.^3]*q(6:9);
+rad = q(10);
+thetad(1) = atan2(ceny(2)-ceny(1), cenx(2)-cenx(1));
+xd(1) = 0.34;
+yd(1) = 0.35;
+t = t';
+cenx = cenx';
+ceny = ceny';
+
+for i=2:N
+    % STT
+    ux(i) = -10*(xd(i-1)-cenx(i));
+    uy(i) = -10*(yd(i-1)-ceny(i));
     
-    ux = -10*(x(1)-xd(i));
-    uy = -10*(x(2)-yd(i));
-    
-    v = sqrt(ux^2 + uy^2);
-    % Simple angular heading controller for consistency
-    w = 5.0 * wrapToPi(atan2(uy, ux) - x(3));
-    
-    x = x + dt_sim * [v*cos(x(3)); v*sin(x(3)); w];
-    step_count = step_count + 1;
+    % Differential
+    vd(i) = sqrt(ux(i)^2 + uy(i)^2);
+    wd(i) = psi((ux(i)^2 + uy(i)^2)/1e-6) * ( ux(i)*( (uy(i)-uy(i-1))/dt ) - uy(i)*( (ux(i)-ux(i-1))/dt ) ) / ( ux(i)^2 + uy(i)^2 );
+    xd(i) = xd(i-1) + dt*vd(i)*cos(thetad(i-1));
+    yd(i) = yd(i-1) + dt*vd(i)*sin(thetad(i-1));
+    thetad(i) = thetad(i-1) + dt*wd(i);
 end
+
 stt_total = toc;
 results(2,:) = {"STT (Diff-Drive)", stt_total, (stt_total/step_count)*1000};
 
