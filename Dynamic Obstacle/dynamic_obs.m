@@ -26,6 +26,7 @@ thetad_R = zeros(1,N);
 vd_R = zeros(1,N);
 wd_R = zeros(1,N);
 
+tic
 % Agent tube
 for i = 1:N
     tk = t(i);
@@ -70,6 +71,7 @@ for i=2:N
     thetad_R(i) = thetad_R(i-1) + dt*wd_R(i);
 end
 
+toc
 %% Plot the trajectories
 figure(1)
 hold on;
