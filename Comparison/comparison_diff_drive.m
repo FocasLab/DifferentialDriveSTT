@@ -3,7 +3,7 @@ clear all;
 tic
 %% Read Data
 format long
-q = readmatrix("test4.xlsx");
+q = readmatrix("comparison.xlsx");
 start = [0.35 0.35 0.2];
 target = [2.65 2.65 0.2];
 obs = [0.75 0.75 0.25;
