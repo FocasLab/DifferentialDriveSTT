@@ -61,36 +61,84 @@ obs = [0.75 0.75 0.25;
 
 dt = 1e-4;
 t = (0:dt:90)';
+step_count = 0;
+global edbar
+edbar = 1e-1;
+
+kd = 0.1;
+ktheta = 10.1;
 % Initialization
 N = length(t);
+ed = zeros(1,N);
+etheta = zeros(1,N);
+eps_d = zeros(1,N);
+eps_theta = zeros(1,N);
+alpha_d = zeros(1,N);
+alpha_theta = zeros(1,N);
+delta = zeros(1,N);
 ux = zeros(1,N);
 uy = zeros(1,N);
-xd = zeros(1,N);
-yd = zeros(1,N);
-thetad = zeros(1,N);
+xd = zeros(1,N+1);
+yd = zeros(1,N+1);
+thetad = zeros(1,N+1);
 vd = zeros(1,N);
 wd = zeros(1,N);
+
 cenx = [ones(length(t),1), t, t.^2, t.^3]*q(2:5);
 ceny = [ones(length(t),1), t, t.^2, t.^3]*q(6:9);
+
 rad = q(10);
-thetad(1) = atan2(ceny(2)-ceny(1), cenx(2)-cenx(1));
-xd(1) = 0.34;
+thetad(1) = 0;
+xd(1) = 0.32;
 yd(1) = 0.35;
 t = t';
 cenx = cenx';
 ceny = ceny';
+rhod_zero = 0.45;
+rhod_inf = 0.01;
+rhotheta_zero = 1.5;
+rhotheta_inf = 0.1;
+decay_d = 0.2/100;
+decay_theta = 0.05/10;
+rhod = (rhod_zero - rhod_inf)*exp(-decay_d*t) + rhod_inf;
+rhotheta = (rhotheta_zero - rhotheta_inf)*exp(-decay_theta*t) + rhotheta_inf;
 
-for i=2:N
-    % STT
-    ux(i) = -10*(xd(i-1)-cenx(i));
-    uy(i) = -10*(yd(i-1)-ceny(i));
+tic
+dm = -0.01;
+for i = 1:N-1
+    ed(i) = norm([xd(i)-cenx(i), yd(i)-ceny(i)])/rad;
+    etheta(i) = psi(ed(i))*(2/pi)*(atan2(ceny(i)-yd(i),cenx(i)-xd(i))-thetad(i));
     
-    % Differential
-    vd(i) = sqrt(ux(i)^2 + uy(i)^2);
-    wd(i) = psi((ux(i)^2 + uy(i)^2)/1e-6) * ( ux(i)*( (uy(i)-uy(i-1))/dt ) - uy(i)*( (ux(i)-ux(i-1))/dt ) ) / ( ux(i)^2 + uy(i)^2 );
-    xd(i) = xd(i-1) + dt*vd(i)*cos(thetad(i-1));
-    yd(i) = yd(i-1) + dt*vd(i)*sin(thetad(i-1));
-    thetad(i) = thetad(i-1) + dt*wd(i);
+    ed(i) = min(max(ed(i) / rhod(i),-1+dm),1-dm);
+    etheta(i) = min(max(etheta(i) / rhotheta(i),-1+dm),1-dm);
+
+    eps_d(i) = log((1+ed(i))/(1-ed(i)));
+    eps_theta(i) = log((1+etheta(i))/(1-etheta(i)));
+
+    alpha_d(i) = 2/((1-ed(i)^2)*rhod(i)*rad);
+    alpha_theta(i) = 4/((1-etheta(i)^2)*pi*rhotheta(i)*ed(i)*rad);
+    delta(i) = atan2(ceny(i)-yd(i),cenx(i)-xd(i));
+    
+    vd(i) = kd*(eps_d(i)*alpha_d(i)*cos(delta(i)-thetad(i)) - eps_theta(i)*alpha_theta(i)*sin(delta(i)-thetad(i)));
+    wd(i) = ktheta*eps_theta(i)*alpha_theta(i);
+
+    xd(i+1) = xd(i) + dt*vd(i)*cos(thetad(i));
+    yd(i+1) = yd(i) + dt*vd(i)*sin(thetad(i));
+    thetad(i+1) = thetad(i) + dt*wd(i);
+    
+    step_count= step_count + 1; 
+end
+
+function act = psi(x)
+    global edbar
+    Delta = 0.01;
+    if x < Delta*edbar
+        act = 0; % Default action
+    elseif x >= Delta * edbar && x < 1
+        act =  (x-Delta* edbar) / (1-Delta*edbar); % Action when x is greater than or equal to 0.99
+    else 
+        act = 1;
+    end
 end
 
 stt_total = toc;

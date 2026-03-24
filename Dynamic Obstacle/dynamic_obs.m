@@ -18,13 +18,36 @@ N = length(t);
 breaks = linspace(t0, tf, M+1);
 
 %% Main robot trajectory
-ux_R = zeros(1,N);
-uy_R = zeros(1,N);
-xd_R = zeros(1,N);
-yd_R = zeros(1,N);
-thetad_R = zeros(1,N);
-vd_R = zeros(1,N);
-wd_R = zeros(1,N);
+global edbar
+edbar = 1e-1;
+
+kd = 0.1;
+ktheta = 10.1;
+% Initialization
+ed = zeros(1,N);
+etheta = zeros(1,N);
+eps_d = zeros(1,N);
+eps_theta = zeros(1,N);
+alpha_d = zeros(1,N);
+alpha_theta = zeros(1,N);
+delta = zeros(1,N);
+
+ux = zeros(1,N);
+uy = zeros(1,N);
+xd = zeros(1,N+1);
+yd = zeros(1,N+1);
+thetad = zeros(1,N+1);
+vd = zeros(1,N);
+wd = zeros(1,N);
+
+rhod_zero = 0.45;
+rhod_inf = 0.01;
+rhotheta_zero = 1.5;
+rhotheta_inf = 0.1;
+decay_d = 0.2/100;
+decay_theta = 0.05/10;
+rhod = (rhod_zero - rhod_inf)*exp(-decay_d*t) + rhod_inf;
+rhotheta = (rhotheta_zero - rhotheta_inf)*exp(-decay_theta*t) + rhotheta_inf;
 
 tic
 % Agent tube
@@ -48,27 +71,38 @@ for i = 1:N
     tau = (tk - t_start) / (t_end - t_start);
 
     % Evaluate polynomial
-    cenx_R(i) = ax + bx*tau + cx*(tau^2);
-    ceny_R(i) = ay + by*tau + cy*(tau^2);
-    rad_R(i)  = ar + br*tau + cr*(tau^2);
+    cenx(i) = ax + bx*tau + cx*(tau^2);
+    ceny(i) = ay + by*tau + cy*(tau^2);
+    rad(i)  = ar + br*tau + cr*(tau^2);
 end
 
-xd_R(1) = cenx_R(1);
-yd_R(1) = ceny_R(1);
-thetad_R(1) = atan2(ceny_R(2)-ceny_R(1), cenx_R(2)-cenx_R(1));
+xd(1) = cenx(1);
+yd(1) = ceny(1)-0.01;
+thetad(1) = 0;
 
-%Trajectory for Agent 1
-for i=2:N
-    % STT
-    ux_R(i) = -10*(xd_R(i-1)-cenx_R(i));
-    uy_R(i) = -10*(yd_R(i-1)-ceny_R(i));
+%Trajectory for robot
+dm = -0.01;
+for i = 1:N-1
+    ed(i) = norm([xd(i)-cenx(i), yd(i)-ceny(i)])/rad(i);
+    etheta(i) = psi(ed(i))*(2/pi)*(atan2(ceny(i)-yd(i),cenx(i)-xd(i))-thetad(i));
     
-    % Differential
-    vd_R(i) = sqrt(ux_R(i)^2 + uy_R(i)^2);
-    wd_R(i) = psi((ux_R(i)^2 + uy_R(i)^2)/1e-6) * ( ux_R(i)*( (uy_R(i)-uy_R(i-1))/dt ) - uy_R(i)*( (ux_R(i)-ux_R(i-1))/dt ) ) / ( ux_R(i)^2 + uy_R(i)^2 );
-    xd_R(i) = xd_R(i-1) + dt*vd_R(i)*cos(thetad_R(i-1));
-    yd_R(i) = yd_R(i-1) + dt*vd_R(i)*sin(thetad_R(i-1));
-    thetad_R(i) = thetad_R(i-1) + dt*wd_R(i);
+    ed(i) = min(max(ed(i) / rhod(i),-1+dm),1-dm);
+    etheta(i) = min(max(etheta(i) / rhotheta(i),-1+dm),1-dm);
+
+    eps_d(i) = log((1+ed(i))/(1-ed(i)));
+    eps_theta(i) = log((1+etheta(i))/(1-etheta(i)));
+
+    alpha_d(i) = 2/((1-ed(i)^2)*rhod(i)*rad(i));
+    alpha_theta(i) = 4/((1-etheta(i)^2)*pi*rhotheta(i)*ed(i)*rad(i));
+    delta(i) = atan2(ceny(i)-yd(i),cenx(i)-xd(i));
+    
+    vd(i) = kd*(eps_d(i)*alpha_d(i)*cos(delta(i)-thetad(i)) - eps_theta(i)*alpha_theta(i)*sin(delta(i)-thetad(i)));
+    wd(i) = ktheta*eps_theta(i)*alpha_theta(i);
+
+    xd(i+1) = xd(i) + dt*vd(i)*cos(thetad(i));
+    yd(i+1) = yd(i) + dt*vd(i)*sin(thetad(i));
+    thetad(i+1) = thetad(i) + dt*wd(i);
+    
 end
 
 toc
@@ -81,19 +115,19 @@ rectangle('Position',[2.45,2.45,0.4,0.4],'Curvature',1,'FaceColor','g','FaceAlph
 rectangle('Position',[1.5,1.5,0.5,0.5],'Curvature',1,'FaceColor','r','FaceAlpha',0.5); % Obstacle 2
 % rectangle('Position',[0,1.5,0.5,0.5],'Curvature',1,'FaceColor','r','FaceAlpha',0.5); % Obstacle 3
 % rectangle('Position',[2,0.5,0.5,0.5],'Curvature',1,'FaceColor','r','FaceAlpha',0.5); % Obstacle 4
-plot(cenx_R, ceny_R, 'k--', 'LineWidth',1.5)
-plot(xd_R, yd_R, 'b-', 'LineWidth',2)
+plot(cenx, ceny, 'k--', 'LineWidth',1.5)
+plot(xd(1:end-1), yd(1:end-1), 'b-', 'LineWidth',2)
 grid on
 %%
-function p = psi(v)
-    p = zeros(1,length(v));
-    
-    for i = 1:length(v)
-        if v(i) < 1
-            p(i) = 0;
-        else
-            p(i) = 1;
-        end
+function act = psi(x)
+    global edbar
+    Delta = 0.01;
+    if x < Delta*edbar
+        act = 0; % Default action
+    elseif x >= Delta * edbar && x < 1
+        act =  (x-Delta* edbar) / (1-Delta*edbar); % Action when x is greater than or equal to 0.99
+    else 
+        act = 1;
     end
 end
 
@@ -110,8 +144,8 @@ Tsurf = zeros(N, length(theta));
 
 % sweep the tube cross-section along the trajectory
 for i = 1:N
-    Xsurf(i,:) = cenx_R(i) + rad_R(i)*cos(theta);
-    Ysurf(i,:) = ceny_R(i) + rad_R(i)*sin(theta);
+    Xsurf(i,:) = cenx(i) + rad(i)*cos(theta);
+    Ysurf(i,:) = ceny(i) + rad(i)*sin(theta);
     Tsurf(i,:) = t(i)*ones(1,length(theta));
 end
 
@@ -123,7 +157,7 @@ s = surf(Xsurf, Ysurf, Tsurf);
 set(s, 'FaceColor', [0.4 0.6 1],  'FaceAlpha', 0.2, 'EdgeColor', 'none'); 
 
 % plot centerline
-plot3(cenx_R, ceny_R, t, 'k', 'LineWidth', 2);
+plot3(cenx, ceny, t, 'k', 'LineWidth', 2);
 
 % axis labels and view
 xlabel('$x_1$ (m)','Interpreter','latex');
@@ -162,11 +196,11 @@ for k = 1:length(t_snap)
     [~, idx] = min(abs(t - tk));
 
     figure; hold on; axis equal;
-    plot(cenx_R(1:idx), ceny_R(1:idx), 'Color', tube_color, 'LineWidth', 1.5); % center trajectory
+    plot(cenx(1:idx), ceny(1:idx), 'Color', tube_color, 'LineWidth', 1.5); % center trajectory
 
     th = linspace(0, 2*pi, 100);
-    Xcirc = cenx_R(idx) + rad_R(idx)*cos(th);
-    Ycirc = ceny_R(idx) + rad_R(idx)*sin(th);
+    Xcirc = cenx(idx) + rad(idx)*cos(th);
+    Ycirc = ceny(idx) + rad(idx)*sin(th);
     fill(Xcirc, Ycirc, tube_color, 'FaceAlpha', 0.5, 'EdgeColor', 'none');
 
     rectangle('Position',[0.15,0.15,0.4,0.4],'Curvature',1,'FaceColor','b','FaceAlpha',0.5,'EdgeColor', 'none'); % Start
@@ -175,7 +209,7 @@ for k = 1:length(t_snap)
     rectangle('Position',[2.25,1.75,0.5,0.5],'Curvature',1,'FaceColor','r','FaceAlpha',0.5,'EdgeColor', 'none'); % Target
     rectangle('Position',[1.75,1.5,0.5,0.5],'Curvature',1,'FaceColor','r','FaceAlpha',0.5,'EdgeColor', 'none'); % Target
 
-    plot(xd_R(idx), yd_R(idx), 'ko', 'MarkerFaceColor', robot_color, 'MarkerSize', 7);
+    plot(xd(idx), yd(idx), 'ko', 'MarkerFaceColor', robot_color, 'MarkerSize', 7);
 
     oxA = OA_x0; oyA = OA_y0 + speed_A*tk;
     oxB = OB_x0; oyB = OB_y0 - speed_B*tk;
