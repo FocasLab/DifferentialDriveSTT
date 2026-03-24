@@ -11,14 +11,14 @@ obs = [0.75 0.75 0.25;
        0.25 1.75 0.25;
        2.25 0.75 0.25];
 
-dt = 1e-3;
+dt = 1e-2;
 t = (0:dt:90)';
 
 global edbar
 edbar = 1e-1;
 
 kd = 0.1;
-ktheta = 0.01;
+ktheta = 10.1;
 % Initialization
 N = length(t);
 ed = zeros(1,N);
@@ -35,8 +35,12 @@ yd = zeros(1,N+1);
 thetad = zeros(1,N+1);
 vd = zeros(1,N);
 wd = zeros(1,N);
+
 cenx = [ones(length(t),1), t, t.^2, t.^3]*q(2:5);
 ceny = [ones(length(t),1), t, t.^2, t.^3]*q(6:9);
+% cenx = [ones(length(t),1), t, t.^2, t.^3]*q(2:5);
+% ceny = [ones(length(t),1), 10*t, 100*t.^2, 1000*t.^3]*q(6:9);
+
 rad = q(10);
 thetad(1) = 0;
 xd(1) = 0.32;
@@ -48,14 +52,14 @@ rhod_zero = 0.45;
 rhod_inf = 0.01;
 rhotheta_zero = 1.5;
 rhotheta_inf = 0.1;
-decay_d = 0.2;
-decay_theta = 0.05;
+decay_d = 0.2/100;
+decay_theta = 0.05/10;
 rhod = (rhod_zero - rhod_inf)*exp(-decay_d*t) + rhod_inf;
 rhotheta = (rhotheta_zero - rhotheta_inf)*exp(-decay_theta*t) + rhotheta_inf;
 
 tic
 figure(1)
-dm = -0.1;
+dm = -0.01;
 for i = 1:N-1
     ed(i) = norm([xd(i)-cenx(i), yd(i)-ceny(i)])/rad;
     etheta(i) = psi(ed(i))*(2/pi)*(atan2(ceny(i)-yd(i),cenx(i)-xd(i))-thetad(i));
@@ -69,12 +73,15 @@ for i = 1:N-1
     alpha_d(i) = 2/((1-ed(i)^2)*rhod(i)*rad);
     alpha_theta(i) = 4/((1-etheta(i)^2)*pi*rhotheta(i)*ed(i)*rad);
     delta(i) = atan2(ceny(i)-yd(i),cenx(i)-xd(i));
+    
     vd(i) = kd*(eps_d(i)*alpha_d(i)*cos(delta(i)-thetad(i)) + eps_theta(i)*alpha_theta(i)*sin(delta(i)-thetad(i)));
-    wd(i) = -ktheta*eps_theta(i)*alpha_theta(i);
+    wd(i) = ktheta*eps_theta(i)*alpha_theta(i);
+
     xd(i+1) = xd(i) + dt*vd(i)*cos(thetad(i));
     yd(i+1) = yd(i) + dt*vd(i)*sin(thetad(i));
     thetad(i+1) = thetad(i) + dt*wd(i);
     
+    clf;
     subplot(2,3,1)
     hold on;
     plot(t(1:i),cenx(1:i)+rad, 'b-', 'LineWidth', 1.5);
@@ -95,13 +102,22 @@ for i = 1:N-1
 
     subplot(2,3,4)
     hold on;
-    plot(t(1:i),vd(1:i), 'b-', 'LineWidth', 1.5);
+    plot(t(1:i),0*rhod(1:i), 'b--', 'LineWidth', 1.5);
+    plot(t(1:i),rhod(1:i), 'b--', 'LineWidth', 1.5);
+    plot(t(1:i),ed(1:i), 'k-', 'LineWidth', 1.5);
 
     subplot(2,3,5)
     hold on;
-    plot(t(1:i),wd(1:i), 'b-', 'LineWidth', 1.5);
+    plot(t(1:i),-rhotheta(1:i), 'b--', 'LineWidth', 1.5);
+    plot(t(1:i),rhotheta(1:i), 'b--', 'LineWidth', 1.5);
+    plot(t(1:i),etheta(1:i), 'k-', 'LineWidth', 1.5);
 
-    pause(dt/10)
+    subplot(2,3,6)
+    hold on;
+    plot(cenx,ceny,'b--', 'LineWidth', 1.0);
+    plot(xd(1:i),yd(1:i), 'k-', 'LineWidth', 2.5);
+
+    pause(dt/100000)
 end
 
 toc
