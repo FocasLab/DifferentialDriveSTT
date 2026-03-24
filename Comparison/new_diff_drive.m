@@ -74,13 +74,14 @@ for i = 1:N-1
     alpha_theta(i) = 4/((1-etheta(i)^2)*pi*rhotheta(i)*ed(i)*rad);
     delta(i) = atan2(ceny(i)-yd(i),cenx(i)-xd(i));
     
-    vd(i) = kd*(eps_d(i)*alpha_d(i)*cos(delta(i)-thetad(i)) + eps_theta(i)*alpha_theta(i)*sin(delta(i)-thetad(i)));
+    vd(i) = kd*(eps_d(i)*alpha_d(i)*cos(delta(i)-thetad(i)) - eps_theta(i)*alpha_theta(i)*sin(delta(i)-thetad(i)));
     wd(i) = ktheta*eps_theta(i)*alpha_theta(i);
 
     xd(i+1) = xd(i) + dt*vd(i)*cos(thetad(i));
     yd(i+1) = yd(i) + dt*vd(i)*sin(thetad(i));
     thetad(i+1) = thetad(i) + dt*wd(i);
     
+    if i==N-1
     clf;
     subplot(2,3,1)
     hold on;
@@ -118,6 +119,7 @@ for i = 1:N-1
     plot(xd(1:i),yd(1:i), 'k-', 'LineWidth', 2.5);
 
     pause(dt/100000)
+    end
 end
 
 toc
