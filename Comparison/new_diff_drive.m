@@ -124,11 +124,14 @@ grid on
 
 
 function act = psi(x)
-    global edbar 
-    if x == 0
+    global edbar
+    Delta = 0.01;
+    if x < Delta*edbar
         act = 0; % Default action
-    else
-        act = 1; % Action when x is greater than or equal to 0.99
+    elseif x >= Delta * edbar && x < 1
+        act =  (x-Delta* edbar) / (1-Delta*edbar); % Action when x is greater than or equal to 0.99
+    else 
+        act = 1;
     end
 end
 
