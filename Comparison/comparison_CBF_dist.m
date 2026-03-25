@@ -106,7 +106,7 @@ while t < Tmax
     % Map:
     v = u_fwd;                            % drive forward as much as projection allows
     % Turn so that heading aligns with u: w ~ k_theta * atan2(u_lat, max(eps,|u_fwd|))
-    k_theta = 4.0;
+    k_theta = 2.0;
     w = k_theta * atan2(u_lat, max(1e-6, abs(u_fwd)));
 
     % Saturate unicycle inputs
@@ -114,7 +114,7 @@ while t < Tmax
     w = max(w_min, min(w_max, w));
 
     % add disturbance
-    dist = 0.1*[1; 1; 1]*sin(t);
+    dist = 0.05*[1; 1; 1]*sin(t);
 
     % ----- Integrate differential drive -----
     x = x + dt*([v*cos(x(3)); v*sin(x(3)); w ]+dist);
