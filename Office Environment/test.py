@@ -629,6 +629,7 @@ def avoid(solver, *args):
     bounds_flat = args[:-2]  # all spatial bounds
     t1, t2 = args[-2], args[-1]
     solver.obstacles.append(list(args))
+    eta = 0.1
 
     # Convert bounds into [(min, max), (min, max), ...] for each dimension
     bounds = [(bounds_flat[i], bounds_flat[i + 1]) for i in range(0, 2 * dim, 2)]
@@ -645,7 +646,7 @@ def avoid(solver, *args):
         for d in range(dim):
             lower, upper = bounds[d]
             # Must satisfy: gamma_d < lower OR gamma_d > upper for AT LEAST ONE dimension d
-            gamma_constraints.append(z3.Or(gamma_t[d] < lower-0.1, gamma_t[d] > upper+0.1))
+            gamma_constraints.append(z3.Or(gamma_t[d] < lower-eta, gamma_t[d] > upper+eta))
 
         # Combine dimensional checks with z3.Or: The center is outside the box if it fails 
         # containment in at least one dimension.
@@ -663,7 +664,7 @@ def avoid(solver, *args):
                 P_d = solver.an_exp(t)[f'a{d+1}'] * u[d] + gamma_t[d]
                 
                 # Must satisfy: P_d < lower OR P_d > upper for AT LEAST ONE dimension d
-                boundary_point_constraints.append(z3.Or(P_d < lower-0.1, P_d > upper+0.1))
+                boundary_point_constraints.append(z3.Or(P_d < lower-eta, P_d > upper+eta))
 
             # Combine dimensional checks with z3.Or: The boundary point is outside the box if it fails 
             # containment in at least one dimension.
@@ -828,149 +829,3 @@ def real_gamma_dot(t, C_fin):
                 real_tubes[i] += power * ((C_fin[j + i * (degree + 1)]) * (t ** (power - 1)))
                 power += 1
     return real_tubes
-
-def tube_plotter(C_array):
-    any_empty = any(t[0] is None or (hasattr(t[0], '__len__') and len(t[0]) == 0) for t in C_array)
-
-    if not any_empty:
-        fig, axs = plt.subplots(2, 1, figsize=(8, 8), constrained_layout=True)
-        ax, bx = axs
-
-        for tube in C_array:
-            step = 0.1
-            start = tube[1]
-            end = tube[2]
-            time_range = int((end - start + step)/step)
-
-            x = np.zeros(time_range)
-            y = np.zeros(time_range)
-
-            gd_x = np.zeros(time_range)
-            gd_y = np.zeros(time_range)
-
-            for i in range(time_range):
-                tube_gamma = real_gammas(start + i * step, tube[0])
-                x[i] = tube_gamma[0]
-                y[i] = tube_gamma[1]
-
-                tube_gamma_dot = real_gamma_dot(start + i * step, tube[0])
-                gd_x[i] = tube_gamma_dot[0]
-                gd_y[i] = tube_gamma_dot[1]
-
-            t = np.linspace(start, end, time_range)
-            print("range: ", time_range, "\nstart: ", start, "\nfinish: ", end, "\nstep: ", step)
-
-            ax.plot(t, x)
-            bx.plot(t, y)
-
-        plt.show()
-
-def plot_mitl_environment(C_array):
-    """Plot the MITL environment and circular regions of interest."""
-    
-    # --- Parameters ---
-    sc_cof = 0.4
-    rad_enh = 1.5 / sc_cof
-    scale_factor = 1 / 25
-    y_shift = 12
-
-    # --- Main Polygon ---
-    pol_main = np.array([
-        [73.220703, 292.304690], [73.220703, 444.078120],
-        [186.035160, 444.078120], [186.035160, 452.800780],
-        [73.220703, 452.800780], [73.220703, 553.345700],
-        [167.533200, 553.345700], [167.533200, 560.923830],
-        [73.269531, 560.923830], [73.269531, 759.933590],
-        [229.419920, 759.802730], [229.419920, 734.056640],
-        [250.312500, 734.056640], [250.312500, 615.958980],
-        [229.419920, 615.958980], [229.419920, 592.255860],
-        [250.312500, 592.255860], [250.312500, 560.923830],
-        [207.611330, 560.923830], [207.611330, 553.345700],
-        [299.400390, 553.345700], [299.462890, 560.923830],
-        [257.025390, 560.923830], [257.025390, 734.056640],
-        [277.226560, 734.056640], [277.226560, 760.035160],
-        [376.623050, 760.035160], [376.623050, 560.923830],
-        [334.945310, 560.923830], [334.957010, 553.345700],
-        [428.542950, 553.345700], [428.570250, 560.923830],
-        [383.619080, 560.923830], [383.619080, 760.056640],
-        [505.615170, 759.802730], [505.615170, 560.923830],
-        [465.066350, 560.923830], [465.216740, 553.345700],
-        [512.826110, 553.345700], [512.826110, 759.802730],
-        [630.222600, 759.802730], [630.431580, 736.000000],
-        [670.874940, 736.509770], [670.874940, 689.175780],
-        [549.849550, 689.175780], [549.849550, 680.931640],
-        [670.874940, 680.931640], [670.874940, 452.685550],
-        [549.849550, 452.685550], [549.849550, 444.173830],
-        [670.820250, 444.173830], [670.486270, 292.304690],
-        [633.214780, 292.304690], [633.214780, 327.222660],
-        [596.972600, 327.222660], [596.732360, 292.304690],
-        [558.130800, 292.304690], [558.130800, 405.199220],
-        [549.849550, 405.199220], [549.849550, 375.789060],
-        [525.013610, 375.789060], [525.013610, 365.863280],
-        [549.849550, 365.863280], [549.849550, 292.761720],
-        [418.234320, 292.761720], [418.234320, 365.863280],
-        [441.187440, 365.863280], [441.187440, 375.789060],
-        [357.140560, 375.789060], [357.140560, 365.863280],
-        [410.140560, 365.863280], [410.140560, 292.304690],
-        [260.095640, 292.304690], [260.095640, 327.222660],
-        [227.687440, 327.222660], [227.699140, 292.304690],
-        [73.220703, 292.304690]
-    ])
-
-    # Apply scaling, enhancement, and y inversion
-    pol_main = sc_cof * (pol_main + np.array([rad_enh, rad_enh]))
-    pol_main[:, 1] *= -1
-    pol_main = pol_main * scale_factor
-    pol_main[:, 1] += y_shift
-
-    # --- Regions of Interest ---
-    rois = np.array([
-        [220, -700],
-        [250, -400],
-        [625, -712.5],
-        [200 / sc_cof, -130 / sc_cof]
-    ]) * sc_cof * scale_factor
-    rois[:, 1] += y_shift
-
-    # --- Plot ---
-    fig, ax = plt.subplots(figsize=(7, 7))
-    ax.add_patch(Polygon(pol_main, closed=True, fc='lightgray', ec='k'))
-
-    # Draw circular regions
-    r = (4 + rad_enh * sc_cof) * scale_factor
-    for (x, y) in rois:
-        ax.add_patch(Circle((x, y), r, edgecolor='k', facecolor='none', lw=1.2))
-
-    # Style
-    ax.set_aspect('equal', 'box')
-    ax.set_xticks(np.arange(0.8, 11.6, 0.4))
-    ax.set_yticks(np.arange(-0.4, 8, 0.4))
-    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_title('MITL Environment')
-
-    any_empty = any(t[0] is None or (hasattr(t[0], '__len__') and len(t[0]) == 0) for t in C_array)
-
-    if not any_empty:
-        
-        for tube in C_array:
-            step = 0.1
-            start = tube[1]
-            end = tube[2]
-            time_range = int((end - start + step)/step)
-
-            x = np.zeros(time_range)
-            y = np.zeros(time_range)
-
-            for i in range(time_range):
-                tube_gamma = real_gammas(start + i * step, tube[0])
-                x[i] = tube_gamma[0]
-                y[i] = tube_gamma[1]
-
-            ax.plot(x, y)
-
-    plt.show()
-
-# tube_plotter(tubes)
-plot_mitl_environment(tubes)
