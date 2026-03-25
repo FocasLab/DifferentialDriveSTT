@@ -106,6 +106,13 @@ for i = 1:N-1
 end
 
 toc
+
+L_cenx = max(abs(diff(cenx)) / dt);
+L_ceny = max(abs(diff(ceny)) / dt);
+L_cen = max(L_cenx, L_ceny);
+fprintf('Lipschitz constant of cenx(t): %.4f\n', L_cenx);
+fprintf('Lipschitz constant of ceny(t): %.4f\n', L_ceny);
+fprintf('Lipschitz constant of center ||c(t)||: %.4f\n', L_cen);
 %% Plot the trajectories
 figure(1)
 hold on;

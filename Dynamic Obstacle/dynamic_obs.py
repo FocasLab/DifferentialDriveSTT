@@ -9,7 +9,8 @@ USE_C1 = True
 TIMEOUT_MS = 30000           # per-check timeout; guarantees return
 
 dim = 2
-N = 30          # number of timesamples
+N = 1000          # number of timesamples
+eta = -0.0075    # useed for verification
 t0 = 1e-5       # Start time
 tf = 5.0        # Final time
 t_vec = np.linspace(t0, tf, N)
@@ -118,7 +119,7 @@ for idx, tk in enumerate(t_vec):
     gx, gy, gr = gam_exprs_at(tk)
 
     for (ox, oy, RR) in (obsA_samples[idx], obsB_samples[idx], obsC_samples[idx], obsD_samples[idx]):
-        s.add((gx - ox)*(gx - ox) + (gy - oy)*(gy - oy) - (gr + RR)*(gr + RR) > 0)
+        s.add((gx - ox)*(gx - ox) + (gy - oy)*(gy - oy) - (gr + RR)*(gr + RR) > -eta)
 
 # Solution
 tic = time.time()
@@ -126,6 +127,7 @@ print("Model Check start")
 res = s.check()
 toc = time.time()
 print("SMT status:", res, "in", round(toc - tic, 3), "s")
+print("Epsilon = ", (tf - t0)/N, "eta = ", eta)
 
 if res != sat:
     print("Unsatisfiable. Try reducing N, relaxing to box constraints, or dropping C1 continuity.")
