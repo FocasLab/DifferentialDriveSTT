@@ -13,7 +13,7 @@ goal_pos_tol = 0.05;
 results = table('Size',[3 3], 'VariableTypes',{'string','double','double'}, ...
     'VariableNames',{'Method','Total_Time(s)','Avg_Time_Per_Step (ms)'});
 
-N_runs = 100; % number of Monte Carlo runs
+N_runs = 10; % number of Monte Carlo runs
 use_disturbance = [1]; % 0: no disturbance, 1: with disturbance
 
 
@@ -114,8 +114,9 @@ for d_case = 1:length(use_disturbance)
         time_array(run) = (elapsed/step_count)*1000;
         safe = true;
         for j = 1:M
-            if norm(traj(1:2, :) - obs(j,1:2)') <= Reff(j)
+            if any(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) <= Reff(j))
                 safe = false;
+                j
                 break;
             end
         end
