@@ -629,7 +629,7 @@ def avoid(solver, *args):
     bounds_flat = args[:-2]  # all spatial bounds
     t1, t2 = args[-2], args[-1]
     solver.obstacles.append(list(args))
-    eta = 0.1
+    eta = -0.1
 
     # Convert bounds into [(min, max), (min, max), ...] for each dimension
     bounds = [(bounds_flat[i], bounds_flat[i + 1]) for i in range(0, 2 * dim, 2)]
@@ -646,7 +646,7 @@ def avoid(solver, *args):
         for d in range(dim):
             lower, upper = bounds[d]
             # Must satisfy: gamma_d < lower OR gamma_d > upper for AT LEAST ONE dimension d
-            gamma_constraints.append(z3.Or(gamma_t[d] < lower-eta, gamma_t[d] > upper+eta))
+            gamma_constraints.append(z3.Or(gamma_t[d] < lower+eta, gamma_t[d] > upper-eta))
 
         # Combine dimensional checks with z3.Or: The center is outside the box if it fails 
         # containment in at least one dimension.
@@ -664,7 +664,7 @@ def avoid(solver, *args):
                 P_d = solver.an_exp(t)[f'a{d+1}'] * u[d] + gamma_t[d]
                 
                 # Must satisfy: P_d < lower OR P_d > upper for AT LEAST ONE dimension d
-                boundary_point_constraints.append(z3.Or(P_d < lower-eta, P_d > upper+eta))
+                boundary_point_constraints.append(z3.Or(P_d < lower+eta, P_d > upper-eta))
 
             # Combine dimensional checks with z3.Or: The boundary point is outside the box if it fails 
             # containment in at least one dimension.
