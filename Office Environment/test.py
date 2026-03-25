@@ -645,7 +645,7 @@ def avoid(solver, *args):
         for d in range(dim):
             lower, upper = bounds[d]
             # Must satisfy: gamma_d < lower OR gamma_d > upper for AT LEAST ONE dimension d
-            gamma_constraints.append(z3.Or(gamma_t[d] < lower, gamma_t[d] > upper))
+            gamma_constraints.append(z3.Or(gamma_t[d] < lower-0.1, gamma_t[d] > upper+0.1))
 
         # Combine dimensional checks with z3.Or: The center is outside the box if it fails 
         # containment in at least one dimension.
