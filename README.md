@@ -28,10 +28,7 @@ In addition, we have compared our approach with existing approaches, which are a
 ### COMPARISON
 - `comparison.py`: Generates STT for the robot for comparing with other methods (Python file)
 - `comparison.xlsx`: Coefficients of the STT generated for the comparison environment (Excel file)
-- `comparison_diff_drive.m`: Generate the trajectory using the STT-based closed-form controller in the presence of disturbance. (MATLAB File)
-- `comparison_CBF.m`: Generate the trajectory using the CBF-based Controller without any disturbance. (MATLAB File)
-- `comparison_CBF_dist.m`: Generate the trajectory using the CBF-based Controller in the presence of disturbance. (MATLAB File)
-- `comparison_MPC.m`: Generate the trajectory using the MPC-based controller without any disturbance. (MATLAB File)
+- `comparison_new.m`: Generate and compare the trajectories using the STT-based closed-form controller with conventional CBF and MPC-based controller in the presence and absence of disturbance. (MATLAB File)
 - `diff_traj_Comparison.fig`, `diff_traj_Comparison.eps`: Visualizes the trajectories of the robot obtained under different control policies.
 
 ## Requirements
