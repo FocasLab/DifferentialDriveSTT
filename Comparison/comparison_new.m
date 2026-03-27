@@ -235,7 +235,7 @@ for d_case = 1:length(use_disturbance)
     %% --------------------- CASE 3: MPC (Nonlinear fmincon) -------------------
     fprintf('\n Running MPC Simulation...\n');
     success_count = 0; time_array = zeros(N_runs,1);
-    for run = 1:(N_runs/5)
+    for run = 1%:(N_runs/2)
         run
         safety_buffer  = 0.05; x0 = [0.35; 0.35; pi/6]; dt = dt_sim*10;                
         Reff = obs(:,3) + safety_buffer; step_count = 0;
@@ -244,7 +244,8 @@ for d_case = 1:length(use_disturbance)
         v_min = -0.25;   v_max = 0.8;          % allow small reverse
         w_min = -2.5;    w_max = 2.5;
         
-        N   = 25;                              % prediction steps
+        % N   = 25;                              % prediction steps
+        N   = 15;                              % prediction steps
         Nx  = 3;   Nu = 2;
         M   = size(obs,1);                     % # obstacles
         
@@ -253,14 +254,22 @@ for d_case = 1:length(use_disturbance)
         R   = diag([0.4, 0.05]);               % input effort
         S   = diag([0.1, 0.02]);               % input rate (delta u)
         Qf  = 30.0 * eye(2);                   % terminal position cost
-        Wslack = 2e4;                          % HUGE penalty per slack (obstacle softening)
+        % Wslack = 2e4;                          % HUGE penalty per slack (obstacle softening)
+        Wslack = 1e3;                          % HUGE penalty per slack (obstacle softening)
         
         goal_pos_tol     = 0.25;
         goal_heading_tol = 12*pi/180;
         
-        opts = optimoptions('fmincon', 'Algorithm','sqp',...
-            'Display','none', 'MaxIterations', 150, 'ConstraintTolerance',1e-4, ...
-            'StepTolerance',1e-6, 'OptimalityTolerance',1e-4);
+        % opts = optimoptions('fmincon', 'Algorithm','sqp',...
+        %     'Display','none', 'MaxIterations', 150, 'ConstraintTolerance',1e-4, ...
+        %     'StepTolerance',1e-6, 'OptimalityTolerance',1e-4);
+        opts = optimoptions('fmincon', ...
+                            'Algorithm','sqp', ...
+                            'Display','none', ...
+                            'MaxIterations', 300, ...
+                            'ConstraintTolerance',1e-3, ...
+                            'StepTolerance',1e-5, ...
+                            'OptimalityTolerance',1e-3);
         
         rng(0);
         
@@ -271,7 +280,8 @@ for d_case = 1:length(use_disturbance)
         lb = [repmat([v_min; w_min], N, 1); zeros(numS,1)];     % slacks >= 0
         ub = [repmat([v_max; w_max], N, 1); inf(numS,1)];
         
-        u_init = repmat([0.05; 0], N, 1);
+        % u_init = repmat([0.05; 0], N, 1);
+        u_init = repmat([0.2; 0], N, 1);
         s_init = 0.01 * ones(numS,1);
         z      = [u_init; s_init];
         
@@ -330,19 +340,32 @@ for d_case = 1:length(use_disturbance)
         time_array(run) = (elapsed/step_count)*1000;
         safe = true;
         for j = 1:M
-            if any(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) < Reff(j)-0.02)
-                safe = false
+            if any(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) < Reff(j) - 0.05)
+                min(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) - Reff(j))
+                safe = false;
                 break;
             end
         end
         if norm(goal - x(1:2)) <= 0.5 && safe
             success_count = success_count + 1;
         end
+        success_count
     end
     
     time_array = time_array(1:N_runs/5);
     fprintf('MPC Time: %.4f ± %.4f ms | Success Rate: %.2f%%', mean(time_array), std(time_array), 100*success_count*5/N_runs);
 end
+
+figure(3);
+hold on; grid on;
+xlabel('x'); ylabel('y'); 
+scatter(traj(1,1), traj(1,2), 36, 'm', 'filled');
+scatter(goal(1), goal(2), 60, 'g', 'filled');
+plot(traj(:,1), traj(:,2), 'b-', 'LineWidth', 2);
+drawObstacles(obs(:,1), obs(:,2), obs(:,3), [0.95 0.6 0.6]);
+legend('Start','Goal','Trajectory','Obstacles');
+xlim([0 3])
+ylim([0 3])
 
 %% --------------------- HELPER FUNCTIONS ----------------------------------
 function J = stageCost(z, x0, goal, obs, Reff, N, Qp, Qpsi, R, S, Qf, Wslack, dt, Nu, M, dist)
@@ -436,4 +459,14 @@ function act = psi(x)
         else 
             act = 1;
         end
-    end
+end
+
+%% ==================== DRAW OBSTACLES =====================================
+function drawObstacles(cx, cy, R, faceColor)
+th = linspace(0,2*pi,120);
+for i=1:numel(R)
+    x = cx(i) + R(i)*cos(th);
+    y = cy(i) + R(i)*sin(th);
+    fill(x, y, faceColor, 'EdgeColor','r','FaceAlpha',0.35,'LineWidth',1.4);
+end
+end
