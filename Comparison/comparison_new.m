@@ -14,7 +14,7 @@ results = table('Size',[3 3], 'VariableTypes',{'string','double','double'}, ...
     'VariableNames',{'Method','Total_Time(s)','Avg_Time_Per_Step (ms)'});
 
 N_runs = 100; % number of Monte Carlo runs
-use_disturbance = [1]; % 0: no disturbance, 1: with disturbance
+use_disturbance = [0, 1]; % 0: no disturbance, 1: with disturbance
 
 
 for d_case = 1:length(use_disturbance)
@@ -235,7 +235,7 @@ for d_case = 1:length(use_disturbance)
     %% --------------------- CASE 3: MPC (Nonlinear fmincon) -------------------
     fprintf('\n Running MPC Simulation...\n');
     success_count = 0; time_array = zeros(N_runs,1);
-    for run = 1%:(N_runs/2)
+    for run = 1:(N_runs/2)
         run
         safety_buffer  = 0.05; x0 = [0.35; 0.35; pi/6]; dt = dt_sim*10;                
         Reff = obs(:,3) + safety_buffer; step_count = 0;
@@ -317,7 +317,7 @@ for d_case = 1:length(use_disturbance)
             x = rk4(@(xx,uu) f_unicycle(xx, uu), x, [v; w], dt);
             
             if disturb_flag == 1
-                db = 1e-4 + (1.25e-2 - 1e-4) * (run - 1)/((N_runs/5) - 1);
+                db = 1e-4 + (1.25e-2 - 1e-4) * (run - 1)/((N_runs/2) - 1);
                 dist = db*[1;1;1]*sin(t);
             else
                 dist = zeros(3,1);
@@ -340,8 +340,12 @@ for d_case = 1:length(use_disturbance)
         time_array(run) = (elapsed/step_count)*1000;
         safe = true;
         for j = 1:M
-            if any(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) < Reff(j) - 0.05)
-                min(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) - Reff(j))
+            if disturb_flag == 1
+                buff = Reff(j) - 3e-4;
+            else
+                buff = obs(j,3);
+            end
+            if any(vecnorm(traj(:,1:2)-obs(j,1:2),2,2) < buff)
                 safe = false;
                 break;
             end
@@ -349,23 +353,11 @@ for d_case = 1:length(use_disturbance)
         if norm(goal - x(1:2)) <= 0.5 && safe
             success_count = success_count + 1;
         end
-        success_count
     end
     
-    time_array = time_array(1:N_runs/5);
-    fprintf('MPC Time: %.4f ± %.4f ms | Success Rate: %.2f%%', mean(time_array), std(time_array), 100*success_count*5/N_runs);
+    time_array = time_array(1:N_runs/10);
+    fprintf('MPC Time: %.4f ± %.4f ms | Success Rate: %.2f%%', mean(time_array), std(time_array), 100*success_count*2/N_runs);
 end
-
-figure(3);
-hold on; grid on;
-xlabel('x'); ylabel('y'); 
-scatter(traj(1,1), traj(1,2), 36, 'm', 'filled');
-scatter(goal(1), goal(2), 60, 'g', 'filled');
-plot(traj(:,1), traj(:,2), 'b-', 'LineWidth', 2);
-drawObstacles(obs(:,1), obs(:,2), obs(:,3), [0.95 0.6 0.6]);
-legend('Start','Goal','Trajectory','Obstacles');
-xlim([0 3])
-ylim([0 3])
 
 %% --------------------- HELPER FUNCTIONS ----------------------------------
 function J = stageCost(z, x0, goal, obs, Reff, N, Qp, Qpsi, R, S, Qf, Wslack, dt, Nu, M, dist)
@@ -459,14 +451,4 @@ function act = psi(x)
         else 
             act = 1;
         end
-end
-
-%% ==================== DRAW OBSTACLES =====================================
-function drawObstacles(cx, cy, R, faceColor)
-th = linspace(0,2*pi,120);
-for i=1:numel(R)
-    x = cx(i) + R(i)*cos(th);
-    y = cy(i) + R(i)*sin(th);
-    fill(x, y, faceColor, 'EdgeColor','r','FaceAlpha',0.35,'LineWidth',1.4);
-end
 end
